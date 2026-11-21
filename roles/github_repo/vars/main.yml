@@ -1,0 +1,1 @@
+_all_repos: "{{ github_repos | combine(github_private_repos) }}"

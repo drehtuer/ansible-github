@@ -1,0 +1,21 @@
+# Records a change and, outside check mode, sends it.
+# Inputs: write_what, write_changes (list), write_method, write_url, write_body (optional).
+- name: "{{ repo_name }} | {{ write_what }} | Record"
+  ansible.builtin.set_fact:
+    _changes: "{{ _changes + [write_what] | product(write_changes) | map('join', ': ') | list }}"
+
+- name: "{{ repo_name }} | {{ write_what }} | Apply"
+  ansible.builtin.uri:
+    url: "{{ write_url }}"
+    method: "{{ write_method }}"
+    headers: "{{ github_headers }}"
+    body_format: json
+    body: "{{ write_body | default(omit, true) }}"
+    status_code: [200, 201, 202, 204]
+  register: _write
+  changed_when: true
+  # GraphQL reports errors with HTTP 200.
+  failed_when: >-
+    _write.status not in [200, 201, 202, 204]
+    or (_write.json is defined and _write.json is mapping and 'errors' in _write.json and write_url.endswith('/graphql'))
+  when: not ansible_check_mode

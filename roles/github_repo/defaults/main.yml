@@ -1,0 +1,24 @@
+# Configuration lives in group_vars/all/ (standard.yml, repos.yml, vault.yml).
+# These are only fallbacks.
+
+# Named bundles of settings that repos opt into with `profiles: [...]`.
+# Normally defined in group_vars/all/repos.yml.
+github_profiles: {}
+
+# Public repos (group_vars/all/repos.yml) and private repos (vault.yml).
+github_repos: {}
+github_private_repos: {}
+
+github_owner: ""
+github_owner_is_org: false
+
+# Restrict a run to some repos: -e github_only=repoA,repoB
+github_only: ""
+
+# Existing rulesets with these names are adopted (and renamed) instead of
+# creating a second ruleset next to them.
+github_ruleset_adopt_names:
+  default-branch: [main]
+  releases: [Releases]
+
+github_api: https://api.github.com

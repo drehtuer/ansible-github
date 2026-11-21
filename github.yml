@@ -1,0 +1,54 @@
+# Configure all GitHub repositories in group_vars/all/repos.yml (+ vault.yml).
+#
+#   ansible-playbook github.yml --check     # report differences, change nothing
+#   ansible-playbook github.yml             # apply
+#   ansible-playbook github.yml -e github_only=ShotgunApp,dotfiles
+#   ansible-playbook github.yml --tags readme    # only the profile README
+- name: Configure GitHub repositories
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    github_headers:
+      Authorization: "Bearer {{ github_token }}"
+      Accept: application/vnd.github+json
+      X-GitHub-Api-Version: "2022-11-28"
+
+  pre_tasks:
+    # Every pre_task is tagged `always` so `--tags readme` / `--tags repos` work.
+    - name: Look for the private repository list
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/group_vars/all/vault.yml"
+      register: _vault_stat
+      check_mode: false
+      tags: always
+
+    - name: Read the private repository list as stored on disk
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/group_vars/all/vault.yml"
+      register: _vault_raw
+      when: _vault_stat.stat.exists
+      check_mode: false
+      tags: always
+
+    - name: Make sure the private repository list is encrypted
+      ansible.builtin.assert:
+        that: (_vault_raw.content | b64decode).startswith('$ANSIBLE_VAULT')
+        fail_msg: >-
+          group_vars/all/vault.yml is not encrypted. This repository is public,
+          so encrypt it first: ansible-vault encrypt group_vars/all/vault.yml
+        quiet: true
+      when: _vault_stat.stat.exists
+      tags: always
+
+    - name: Get a GitHub token (GITHUB_TOKEN, else `gh auth token`)
+      ansible.builtin.set_fact:
+        github_token: "{{ lookup('ansible.builtin.env', 'GITHUB_TOKEN') or lookup('ansible.builtin.pipe', 'gh auth token') }}"
+      no_log: true
+      tags: always
+
+  roles:
+    - role: github_repo
+      tags: repos
+    - role: github_profile_readme
+      tags: readme
