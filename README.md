@@ -120,8 +120,8 @@ to `main`.
 - **Removing a repo from the list does not archive or delete it**; it is just
   no longer managed. To archive it, set `archived: true` and run once.
 - **Repos not in the list are never touched**, including the archived ones.
-- **Private repos get no rulesets / secret scanning** — GitHub Free doesn't
-  offer them on private repos. With GitHub Pro, set `rulesets_available: true`
+- **Private repos get no rulesets, secret scanning or auto-merge** — GitHub
+  Free doesn't offer them on private repos. With GitHub Pro, set `rulesets_available: true`
   (in the standard or per repo).
 - **Rulesets are matched by name** (`branch_protection.name`,
   `tag_protection.name`). Rulesets named `default-branch` or `Releases` are

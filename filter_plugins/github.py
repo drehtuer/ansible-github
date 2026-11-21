@@ -135,7 +135,19 @@ def github_create_request(s, name, owner, is_org, api):
 def github_repo_diff(s, current):
     """PATCH body for /repos/{owner}/{repo} with only the differing settings."""
     patch, changes = {}, []
+    # GitHub rejects commit message settings for a disallowed merge method.
+    skip = set()
+    if not s["allow_merge_commit"]:
+        skip |= {"merge_commit_title", "merge_commit_message"}
+    if not s["allow_squash_merge"]:
+        skip |= {"squash_merge_commit_title", "squash_merge_commit_message"}
+    # Like rulesets, auto-merge on private repos needs a paid plan; GitHub
+    # Free silently ignores it.
+    if not s["rulesets_available"]:
+        skip.add("allow_auto_merge")
     for key in REPO_FIELDS:
+        if key in skip:
+            continue
         want, have = s[key], current.get(key)
         if isinstance(want, str) and have is None:
             have = ""
