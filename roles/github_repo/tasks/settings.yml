@@ -1,0 +1,160 @@
+# --- Repository settings and topics -----------------------------------------
+- name: "{{ repo_name }} | Compare settings"
+  ansible.builtin.set_fact:
+    _diff: "{{ _s | github_repo_diff(_current) }}"
+
+- name: "{{ repo_name }} | Update settings"
+  ansible.builtin.include_tasks: write.yml
+  when: _diff.patch | length > 0
+  vars:
+    write_what: settings
+    write_changes: "{{ _diff.changes }}"
+    write_method: PATCH
+    write_url: "{{ _url }}"
+    write_body: "{{ _diff.patch }}"
+
+- name: "{{ repo_name }} | Update topics"
+  ansible.builtin.include_tasks: write.yml
+  when: _diff.topics
+  vars:
+    write_what: topics
+    write_changes: ["{{ _diff.topics.change }}"]
+    write_method: PUT
+    write_url: "{{ _url }}/topics"
+    write_body: "{{ _diff.topics.body }}"
+
+# --- Dependabot -------------------------------------------------------------
+- name: "{{ repo_name }} | Read vulnerability alerts"
+  ansible.builtin.uri:
+    url: "{{ _url }}/vulnerability-alerts"
+    headers: "{{ github_headers }}"
+    status_code: [204, 404]
+  register: _va
+  check_mode: false
+
+- name: "{{ repo_name }} | Update vulnerability alerts"
+  ansible.builtin.include_tasks: write.yml
+  when: (_va.status == 204) != _s.vulnerability_alerts
+  vars:
+    write_what: vulnerability_alerts
+    write_changes: ["{{ _va.status == 204 }} -> {{ _s.vulnerability_alerts }}"]
+    write_method: "{{ _s.vulnerability_alerts | ternary('PUT', 'DELETE') }}"
+    write_url: "{{ _url }}/vulnerability-alerts"
+
+- name: "{{ repo_name }} | Read Dependabot security updates"
+  ansible.builtin.uri:
+    url: "{{ _url }}/automated-security-fixes"
+    headers: "{{ github_headers }}"
+    status_code: [200, 404]
+  register: _dsu
+  check_mode: false
+  when: _s.vulnerability_alerts
+
+- name: "{{ repo_name }} | Update Dependabot security updates"
+  ansible.builtin.include_tasks: write.yml
+  when:
+    - _s.vulnerability_alerts
+    - (_dsu.json.enabled | default(false)) != _s.dependabot_security_updates
+  vars:
+    write_what: dependabot_security_updates
+    write_changes: ["{{ _dsu.json.enabled | default(false) }} -> {{ _s.dependabot_security_updates }}"]
+    write_method: "{{ _s.dependabot_security_updates | ternary('PUT', 'DELETE') }}"
+    write_url: "{{ _url }}/automated-security-fixes"
+
+# --- Immutable releases -----------------------------------------------------
+- name: "{{ repo_name }} | Read immutable releases"
+  ansible.builtin.uri:
+    url: "{{ _url }}/immutable-releases"
+    headers: "{{ github_headers }}"
+    status_code: [200, 404]
+  register: _ir
+  check_mode: false
+
+- name: "{{ repo_name }} | Update immutable releases"
+  ansible.builtin.include_tasks: write.yml
+  when: (_ir.status == 200 and _ir.json.enabled) != _s.immutable_releases
+  vars:
+    write_what: immutable_releases
+    write_changes: ["{{ _ir.status == 200 and _ir.json.enabled }} -> {{ _s.immutable_releases }}"]
+    write_method: "{{ _s.immutable_releases | ternary('PUT', 'DELETE') }}"
+    write_url: "{{ _url }}/immutable-releases"
+
+# --- Pull requests / sponsorships (GraphQL only) ----------------------------
+- name: "{{ repo_name }} | Read pull request and sponsorship settings"
+  ansible.builtin.uri:
+    url: "{{ github_api }}/graphql"
+    method: POST
+    headers: "{{ github_headers }}"
+    body_format: json
+    body:
+      query: >-
+        query($id: ID!) { node(id: $id) { ... on Repository {
+        hasPullRequestsEnabled hasSponsorshipsEnabled } } }
+      variables: {id: "{{ _current.node_id }}"}
+  register: _gql
+  failed_when: _gql.status != 200 or 'errors' in _gql.json
+  check_mode: false
+
+- name: "{{ repo_name }} | Update pull request and sponsorship settings"
+  ansible.builtin.include_tasks: write.yml
+  when: _features_changes | length > 0
+  vars:
+    _have: "{{ _gql.json.data.node }}"
+    _features_changes: >-
+      {{ ([] if _have.hasPullRequestsEnabled == _s.has_pull_requests
+             else ['has_pull_requests: %s -> %s' | format(_have.hasPullRequestsEnabled, _s.has_pull_requests)])
+       + ([] if _have.hasSponsorshipsEnabled == _s.has_sponsorships
+             else ['has_sponsorships: %s -> %s' | format(_have.hasSponsorshipsEnabled, _s.has_sponsorships)]) }}
+    write_what: features
+    write_changes: "{{ _features_changes }}"
+    write_method: POST
+    write_url: "{{ github_api }}/graphql"
+    write_body:
+      query: >-
+        mutation($id: ID!, $prs: Boolean!, $sponsorships: Boolean!) {
+        updateRepository(input: {repositoryId: $id, hasPullRequestsEnabled: $prs,
+        hasSponsorshipsEnabled: $sponsorships}) { clientMutationId } }
+      variables:
+        id: "{{ _current.node_id }}"
+        prs: "{{ _s.has_pull_requests }}"
+        sponsorships: "{{ _s.has_sponsorships }}"
+
+# --- Pages ------------------------------------------------------------------
+- name: "{{ repo_name }} | Pages"
+  when: _s.pages is not none
+  block:
+    - name: "{{ repo_name }} | Read Pages"
+      ansible.builtin.uri:
+        url: "{{ _url }}/pages"
+        headers: "{{ github_headers }}"
+        status_code: [200, 404]
+      register: _pages
+      check_mode: false
+
+    - name: "{{ repo_name }} | Update Pages"
+      ansible.builtin.include_tasks: write.yml
+      when: _pages_diff
+      vars:
+        _pages_diff: "{{ _s | github_pages_diff(_pages.json if _pages.status == 200 else none) }}"
+        write_what: pages
+        write_changes: "{{ _pages_diff.changes }}"
+        write_method: "{{ _pages_diff.method }}"
+        write_url: "{{ _url }}/pages"
+        write_body: "{{ _pages_diff.body }}"
+
+# --- Rulesets ---------------------------------------------------------------
+- name: "{{ repo_name }} | Rulesets"
+  when: _s.rulesets_available
+  block:
+    - name: "{{ repo_name }} | Read rulesets"
+      ansible.builtin.uri:
+        url: "{{ _url }}/rulesets?includes_parents=false&per_page=100"
+        headers: "{{ github_headers }}"
+      register: _rulesets
+      check_mode: false
+
+    - name: "{{ repo_name }} | Ruleset"
+      ansible.builtin.include_tasks: ruleset.yml
+      loop: [branch, tag]
+      loop_control:
+        loop_var: _kind

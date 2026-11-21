@@ -1,0 +1,78 @@
+# Lists every public, managed repository in the profile README with
+# shields.io badges for the latest release, open issues, open pull requests
+# and build status (check runs on the default branch). Private repos are
+# never read, so their names can't end up in the README.
+
+- name: Resolve public repositories
+  ansible.builtin.set_fact:
+    _readme_candidates: "{{ (_readme_candidates | default([])) + [{'name': repo_name, 'description': _s.description, 'default_branch': _s.default_branch}] }}"
+  loop: "{{ github_repos | dict2items }}"
+  loop_control:
+    label: "{{ repo_name }}"
+  vars:
+    repo_name: "{{ item.key }}"
+    _s: "{{ item.value | github_settings(repo_name, github_repo_standard, github_profiles) }}"
+  when: _s.visibility == 'public' and not _s.archived and _s.profile_readme
+
+- name: Check which repositories have workflows
+  ansible.builtin.uri:
+    url: "{{ github_api }}/repos/{{ github_owner }}/{{ item.name }}/actions/workflows?per_page=1"
+    headers: "{{ github_headers }}"
+    status_code: [200, 404]   # 404: repository not created yet
+  loop: "{{ _readme_candidates | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _workflows
+  check_mode: false
+
+- name: Check which repositories have a release
+  ansible.builtin.uri:
+    url: "{{ github_api }}/repos/{{ github_owner }}/{{ item.name }}/releases/latest"
+    headers: "{{ github_headers }}"
+    status_code: [200, 404]   # 404: no (non-prerelease) release yet
+  loop: "{{ _readme_candidates | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _releases
+  check_mode: false
+
+- name: Render repository list
+  ansible.builtin.set_fact:
+    _readme_section: "{{ lookup('ansible.builtin.template', 'repositories.md.j2') }}"
+  vars:
+    _readme_repos: >-
+      {% set out = [] %}{% for r in _workflows.results %}{% set _ = out.append(r.item | combine({
+        'has_workflows': (r.json.total_count | default(0)) > 0,
+        'has_release': _releases.results[loop.index0].status == 200})) %}{% endfor %}{{ out }}
+
+- name: Read profile README
+  ansible.builtin.uri:
+    url: "{{ github_api }}/repos/{{ github_owner }}/{{ github_profile_repo }}/contents/README.md?ref={{ github_profile_readme_branch }}"
+    headers: "{{ github_headers }}"
+  register: _readme
+  check_mode: false
+
+- name: Update profile README
+  vars:
+    _old: "{{ _readme.json.content | b64decode }}"
+    _new: "{{ _old | github_readme_update(_readme_section, github_profile_readme_heading) }}"
+  when: _old != _new
+  block:
+    - name: Profile README differences
+      ansible.builtin.debug:
+        msg: "{{ _readme_section.splitlines() }}"
+      changed_when: ansible_check_mode
+
+    - name: Commit profile README
+      ansible.builtin.uri:
+        url: "{{ github_api }}/repos/{{ github_owner }}/{{ github_profile_repo }}/contents/README.md"
+        method: PUT
+        headers: "{{ github_headers }}"
+        body_format: json
+        body:
+          message: "{{ github_profile_readme_commit_message }}"
+          content: "{{ _new | b64encode }}"
+          sha: "{{ _readme.json.sha }}"
+          branch: "{{ github_profile_readme_branch }}"
+      changed_when: true
+      when: not ansible_check_mode

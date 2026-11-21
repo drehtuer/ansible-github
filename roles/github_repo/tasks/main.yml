@@ -1,0 +1,20 @@
+- name: Check the repository lists
+  ansible.builtin.assert:
+    that:
+      - github_owner | length > 0
+      - github_repos.keys() | intersect(github_private_repos.keys()) | length == 0
+      - github_only == '' or github_only.split(',') | difference(_all_repos.keys()) | length == 0
+    fail_msg: >-
+      github_owner must be set, a repo can't be both in github_repos and
+      github_private_repos, and every name in github_only must be listed.
+    quiet: true
+
+- name: Configure repositories
+  ansible.builtin.include_tasks: repo.yml
+  loop: "{{ _all_repos | dict2items }}"
+  loop_control:
+    loop_var: _repo
+    label: "{{ _repo.key }}"
+  when: github_only == '' or _repo.key in github_only.split(',')
+  vars:
+    repo_name: "{{ _repo.key }}"

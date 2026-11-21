@@ -1,0 +1,84 @@
+# ---------------------------------------------------------------------------
+# THE STANDARD (used by all roles). Every repository gets exactly these settings unless a profile
+# or the repository's own entry overrides them.
+#
+# Merge order: github_repo_standard -> profiles (in listed order) -> repo entry.
+# Dicts are merged key by key; lists and plain values are replaced.
+# Unknown keys are an error, so typos don't go unnoticed.
+# ---------------------------------------------------------------------------
+github_repo_standard:
+  description: ""
+  homepage: ""
+  topics: []
+  visibility: public            # public | private
+  is_template: false
+  archived: false               # true = archive the repo, then leave it alone
+  default_branch: main
+
+  # Features
+  has_issues: true
+  has_pull_requests: true
+  has_wiki: false
+  has_projects: false
+  has_discussions: false
+  has_sponsorships: false
+
+  # Pull request merging
+  allow_merge_commit: true
+  allow_squash_merge: false
+  allow_rebase_merge: true
+  allow_auto_merge: true
+  allow_update_branch: true     # "Always suggest updating pull request branches"
+  delete_branch_on_merge: true  # "Automatically delete head branches"
+  merge_commit_title: PR_TITLE
+  merge_commit_message: PR_BODY
+  squash_merge_commit_title: PR_TITLE
+  squash_merge_commit_message: PR_BODY
+
+  # Security / releases
+  vulnerability_alerts: true
+  dependabot_security_updates: true
+  secret_scanning: true         # incl. push protection; public repos only (GitHub Free)
+  immutable_releases: true
+
+  # List the repo in the profile README (public repos only).
+  profile_readme: true
+
+  # Only used when the repository is created.
+  auto_init: true
+  gitignore_template: null
+  license_template: null
+  template: null                # {owner: ..., repository: ..., include_all_branches: false}
+
+  # GitHub Pages, built by GitHub Actions. Public repos only; ignored for
+  # private ones.
+  #   {}    = Actions-based site
+  #   {build_type: legacy, source_branch: main, source_path: /, cname: ...} = branch-based
+  #   false = make sure there is no Pages site
+  #   null  = not managed
+  pages: {}
+
+  # Rulesets need a public repo on GitHub Free. null = auto (public only).
+  rulesets_available: null
+
+  # Ruleset on the default branch. enabled: false removes it.
+  branch_protection:
+    enabled: true
+    name: main
+    restrict_deletions: true      # the default branch can't be deleted
+    # Force pushes are always blocked.
+    require_pull_request: true
+    required_approving_review_count: 0
+    dismiss_stale_reviews_on_push: true
+    required_review_thread_resolution: true  # "Require conversation resolution before merging"
+    require_extra_approval_for_unattributed_changes: true
+    required_status_checks: []    # check names, e.g. ["Build", "Unit tests"]
+    required_linear_history: false
+    extra_rules: []               # raw ruleset rules as in the GitHub API, appended as-is
+
+  # Ruleset protecting release tags: matching tags can't be deleted or
+  # force-pushed. enabled: false removes it.
+  tag_protection:
+    enabled: true
+    name: releases
+    patterns: ["v*"]              # tag names; "refs/tags/" is added automatically

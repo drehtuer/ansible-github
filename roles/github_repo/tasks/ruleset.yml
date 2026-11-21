@@ -1,0 +1,31 @@
+- name: "{{ repo_name }} | {{ _kind }} | Find ruleset"
+  ansible.builtin.set_fact:
+    _rs_want: "{{ _s | github_ruleset(_kind) }}"
+    _rs_id: "{{ _rulesets.json | github_ruleset_find(_s, _kind, github_ruleset_adopt_names) }}"
+
+- name: "{{ repo_name }} | {{ _kind }} | Read ruleset"
+  ansible.builtin.uri:
+    url: "{{ _url }}/rulesets/{{ _rs_id }}"
+    headers: "{{ github_headers }}"
+  register: _rs_current
+  check_mode: false
+  when: _rs_id | int > 0 and _rs_want
+
+- name: "{{ repo_name }} | {{ _kind }} | Write ruleset"
+  ansible.builtin.include_tasks: write.yml
+  when: _rs_write
+  vars:
+    _rs_changes: >-
+      {{ _rs_want | github_ruleset_diff(_rs_current.json)
+         if _rs_id | int > 0 and _rs_want else [] }}
+    # Exactly one of: create, update, delete, nothing.
+    _rs_write: >-
+      {{ {'method': 'POST', 'url': _url ~ '/rulesets', 'changes': ['create']} if _rs_want and _rs_id | int == 0
+         else {'method': 'PUT', 'url': _url ~ '/rulesets/' ~ _rs_id, 'changes': _rs_changes} if _rs_want and _rs_changes
+         else {'method': 'DELETE', 'url': _url ~ '/rulesets/' ~ _rs_id, 'changes': ['delete']} if not _rs_want and _rs_id | int > 0
+         else none }}
+    write_what: "ruleset {{ _s[_kind ~ '_protection'].name }}"
+    write_changes: "{{ _rs_write.changes }}"
+    write_method: "{{ _rs_write.method }}"
+    write_url: "{{ _rs_write.url }}"
+    write_body: "{{ _rs_want if _rs_want else none }}"

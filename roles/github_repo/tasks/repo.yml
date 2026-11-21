@@ -1,0 +1,61 @@
+- name: "{{ repo_name }} | Resolve settings"
+  ansible.builtin.set_fact:
+    _s: "{{ _repo.value | github_settings(repo_name, github_repo_standard, github_profiles) }}"
+    _url: "{{ github_api }}/repos/{{ github_owner }}/{{ repo_name }}"
+    _changes: []
+
+- name: "{{ repo_name }} | Read repository"
+  ansible.builtin.uri:
+    url: "{{ _url }}"
+    headers: "{{ github_headers }}"
+    status_code: [200, 404]
+  register: _get
+  check_mode: false
+
+- name: "{{ repo_name }} | Create repository"
+  ansible.builtin.include_tasks: write.yml
+  when: _get.status == 404
+  vars:
+    _create: "{{ _s | github_create_request(repo_name, github_owner, github_owner_is_org, github_api) }}"
+    write_what: repository
+    write_changes: ["create{{ ' from template ' ~ _s.template.owner ~ '/' ~ _s.template.repository if _s.template else '' }}"]
+    write_method: POST
+    write_url: "{{ _create.url }}"
+    write_body: "{{ _create.body }}"
+
+- name: "{{ repo_name }} | Current state"
+  ansible.builtin.set_fact:
+    _current: >-
+      {{ _get.json if _get.status == 200
+         else (_write.json | default(none) if _write is defined and _write is not skipped else none) }}
+
+- name: "{{ repo_name }} | Unarchive repository"
+  ansible.builtin.include_tasks: write.yml
+  when: _current and _current.archived and not _s.archived
+  vars:
+    write_what: archived
+    write_changes: ["true -> false"]
+    write_method: PATCH
+    write_url: "{{ _url }}"
+    write_body: {archived: false}
+
+- name: "{{ repo_name }} | Settings"
+  ansible.builtin.include_tasks: settings.yml
+  when: _current and not _s.archived
+
+# Last: GitHub rejects changes to archived repos.
+- name: "{{ repo_name }} | Archive repository"
+  ansible.builtin.include_tasks: write.yml
+  when: _current and _s.archived and not _current.archived
+  vars:
+    write_what: archived
+    write_changes: ["false -> true"]
+    write_method: PATCH
+    write_url: "{{ _url }}"
+    write_body: {archived: true}
+
+- name: "{{ repo_name }} | Differences"
+  ansible.builtin.debug:
+    var: _changes
+  when: _changes | length > 0
+  changed_when: ansible_check_mode

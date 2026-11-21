@@ -1,0 +1,111 @@
+# All managed public repositories. Private ones are in vault.yml (encrypted).
+#
+# Each entry gets the standard (roles/github_repo/defaults/main.yml), then the
+# listed profiles in order, then its own settings. To create a repository, add
+# an entry and run the playbook.
+#
+# Archived repositories (AdventOfCode2022/2025, feeddl, podcast_catcher,
+# SubSurfaceScatter) are not listed and therefore left alone.
+
+github_owner: drehtuer
+
+# --- Profiles: settings shared by some repositories -------------------------
+github_profiles:
+  # Homepage points to the repo's GitHub Pages site.
+  homepage:
+    homepage: "https://{{ github_owner }}.github.io/{{ repo_name }}/"
+
+  # Merges into the default branch must pass CodeQL and code quality.
+  codeql:
+    branch_protection:
+      extra_rules:
+        - type: code_quality
+          parameters: {severity: errors}
+        - type: code_scanning
+          parameters:
+            code_scanning_tools:
+              - tool: CodeQL
+                alerts_threshold: errors
+                security_alerts_threshold: high_or_higher
+
+# --- Repositories -----------------------------------------------------------
+github_repos:
+  # Profile README shown on https://github.com/drehtuer. Its badge table is
+  # written by automation, so commits go straight to main without a PR.
+  drehtuer:
+    description: Profile README
+    branch_protection: {enabled: false}
+
+  ansible-github:
+    description: GitHub configuration via Ansible
+    topics: [ansible, github, ai-coding]
+
+  # Android apps
+
+  ShotgunApp:
+    profiles: [homepage, codeql]
+    description: Android app to pick a starting player, teams, or player order
+    topics: [android, boardgame, choices, ai-coding]
+    branch_protection:
+      required_status_checks: [Build, Unit tests, Static analysis]
+
+  dInfinityApp:
+    profiles: [homepage]
+    description: A dice roller for Android
+    topics: [boardgame, dice, dice-roller, tabletop, android, ai-coding, 3d-rendering, physics-simulation]
+
+  NextGalleryApp:
+    profiles: [homepage]
+    description: Gallery app for Android
+    topics: [ai-coding, android, gallery-viewer, nextcloud, osm]
+
+  NextAlarmApp:
+    profiles: [homepage]
+    description: An alarm clock for Android that takes alarms from calendar entries
+    topics: [ai-coding, alarm-clock, android, calendar]
+
+  podsiloApp:
+    profiles: [homepage, codeql]
+    description: Podcast catcher app for Android that uses Nextcloud's gPodder backend.
+    homepage: https://drehtuer.github.io/podsilo/
+    topics: [android, nextcloud, podcast, podcast-client, ai-coding]
+
+  # Infrastructure
+
+  ansible-drehtuer:
+    profiles: [homepage]
+    description: Ansible configuration for the domains drehtuer.de and drehtuer.net
+    topics: [ansible, server, setup, ai-coding]
+
+  ansible-workstation:
+    profiles: [homepage]
+    description: Ansible provisioning for a personal WSL workstation (Ubuntu 24.04 / 26.04).
+    topics: [ansible, dotfiles, setup, ai-coding]
+
+  dotfiles:
+    description: Dotfiles for drehtuer
+
+  docker:
+    default_branch: master
+
+  fluentbit: {}
+
+  antora:
+    profiles: [homepage]
+
+  # Projects
+
+  AutomaticRecordDigitalizer:
+    profiles: [homepage]
+    description: A contraption to automatically and unsupervised record vinyl records DIY with AI
+    topics: [automation, contraption, recording, vinyl]
+    branch_protection:
+      require_extra_approval_for_unattributed_changes: false
+
+  GardenWateringSystem: {}
+
+  agile:
+    description: Collection of agile games
+
+  JiraHelper:
+    description: Make day2day life with Jira easier

@@ -1,0 +1,7 @@
+| Repository | Description | Release | Issues | Pull requests | Build |
+| --- | --- | --- | --- | --- | --- |
+{% for r in _readme_repos %}
+{%   set base = 'https://github.com/' ~ github_owner ~ '/' ~ r.name %}
+{%   set slug = github_owner ~ '/' ~ r.name %}
+| [{{ r.name }}]({{ base }}) | {{ r.description | replace('|', '\\|') }} | {% if r.has_release %}[![Latest release](https://img.shields.io/github/v/release/{{ slug }}?label=)]({{ base }}/releases/latest){% else %}–{% endif %} | [![Open issues](https://img.shields.io/github/issues/{{ slug }}?label=)]({{ base }}/issues) | [![Open pull requests](https://img.shields.io/github/issues-pr/{{ slug }}?label=)]({{ base }}/pulls) | {% if r.has_workflows %}[![Build](https://img.shields.io/github/check-runs/{{ slug }}/{{ r.default_branch | urlencode }}?label=)]({{ base }}/actions){% else %}–{% endif %} |
+{% endfor %}

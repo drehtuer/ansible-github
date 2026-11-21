@@ -1,0 +1,10 @@
+# Repository whose README.md is the GitHub profile page (<owner>/<owner>).
+github_profile_repo: "{{ github_owner }}"
+github_profile_readme_branch: main
+
+# Heading placed above the generated block when it is first added. After that,
+# only the block between the BEGIN/END markers is rewritten; everything else
+# in the README is yours.
+github_profile_readme_heading: "## Repositories"
+
+github_profile_readme_commit_message: "Update repository list"
