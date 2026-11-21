@@ -5,14 +5,14 @@
 
 - name: Resolve public repositories
   ansible.builtin.set_fact:
-    _readme_candidates: "{{ (_readme_candidates | default([])) + [{'name': repo_name, 'description': _s.description, 'default_branch': _s.default_branch}] }}"
+    _readme_candidates: "{{ (_readme_candidates | default([])) + [{'name': repo_name, 'description': _readme_s.description, 'default_branch': _readme_s.default_branch}] }}"
   loop: "{{ github_repos | dict2items }}"
   loop_control:
     label: "{{ repo_name }}"
   vars:
     repo_name: "{{ item.key }}"
-    _s: "{{ item.value | github_settings(repo_name, github_repo_standard, github_profiles) }}"
-  when: _s.visibility == 'public' and not _s.archived and _s.profile_readme
+    _readme_s: "{{ item.value | github_settings(repo_name, github_repo_standard, github_profiles) }}"
+  when: _readme_s.visibility == 'public' and not _readme_s.archived and _readme_s.profile_readme
 
 - name: Check which repositories have workflows
   ansible.builtin.uri:
