@@ -13,7 +13,7 @@ differences.
 | `group_vars/all/repos.yml` | **The list of public repositories** and the **profiles**. One entry per repo, with only the settings that differ from the standard. |
 | `group_vars/all/vault.yml` | The private repositories. **Encrypted** with `ansible-vault`, so their names stay private. |
 | `roles/github_repo/tasks/` | What a "standard repo" is made of: settings, topics, Dependabot, immutable releases, Pages, rulesets. |
-| `roles/github_profile_readme/` | Writes the repository table (badges for open issues, PRs, build status) into the profile README (`<owner>/<owner>`). |
+| `roles/github_profile_readme/` | Writes the repository table (badges for latest release, open issues, PRs, build status) into the profile README (`<owner>/<owner>`). |
 | `filter_plugins/github.py` | Merging and validating settings, comparing them with GitHub. |
 | `github.yml` | The playbook. |
 
@@ -103,7 +103,7 @@ default), an existing site is left alone.
 
 `roles/github_profile_readme` lists every public repo from `repos.yml` in the
 README of the profile repo, with [shields.io](https://shields.io) badges for
-open issues, open pull requests and the build status (check runs on the default
+the latest release, open issues, open pull requests and the build status (check runs on the default
 branch; `–` for repos without workflows). The badges update live; the playbook
 only needs to run when repos are added, removed or renamed.
 

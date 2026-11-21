@@ -1,7 +1,7 @@
 # Lists every public, managed repository in the profile README with
-# shields.io badges for open issues, open pull requests and build status
-# (check runs on the default branch). Private repos are never read, so their
-# names can't end up in the README.
+# shields.io badges for the latest release, open issues, open pull requests
+# and build status (check runs on the default branch). Private repos are
+# never read, so their names can't end up in the README.
 
 - name: Resolve public repositories
   ansible.builtin.set_fact:
@@ -25,12 +25,25 @@
   register: _workflows
   check_mode: false
 
+- name: Check which repositories have a release
+  ansible.builtin.uri:
+    url: "{{ github_api }}/repos/{{ github_owner }}/{{ item.name }}/releases/latest"
+    headers: "{{ github_headers }}"
+    status_code: [200, 404]   # 404: no (non-prerelease) release yet
+  loop: "{{ _readme_candidates | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _releases
+  check_mode: false
+
 - name: Render repository list
   ansible.builtin.set_fact:
     _readme_section: "{{ lookup('ansible.builtin.template', 'repositories.md.j2') }}"
   vars:
     _readme_repos: >-
-      {% set out = [] %}{% for r in _workflows.results %}{% set _ = out.append(r.item | combine({'has_workflows': (r.json.total_count | default(0)) > 0})) %}{% endfor %}{{ out }}
+      {% set out = [] %}{% for r in _workflows.results %}{% set _ = out.append(r.item | combine({
+        'has_workflows': (r.json.total_count | default(0)) > 0,
+        'has_release': _releases.results[loop.index0].status == 200})) %}{% endfor %}{{ out }}
 
 - name: Read profile README
   ansible.builtin.uri:
