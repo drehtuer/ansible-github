@@ -1,0 +1,5 @@
+# Ansible
+*.retry
+/vault/*
+!/vault/.gitkeep
+__pycache__/
