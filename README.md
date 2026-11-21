@@ -61,8 +61,9 @@ That's it — it gets the standard settings. Creation-only options:
 | Commit messages | PR title + PR body |
 | Security | Dependabot alerts + security updates; secret scanning + push protection (public) |
 | Releases | immutable releases on |
-| Default branch ruleset `default-branch` | no deletion, no force-push, PR required (0 approvals, stale reviews dismissed, threads must be resolved, extra approval for unattributed changes); merge methods follow the repo's merge settings |
-| Tag ruleset `releases` | `v*` tags can't be deleted or force-pushed (custom `tag_protection.patterns` need the full ref, e.g. `refs/tags/release-*`) |
+| GitHub Pages | built by GitHub Actions (public repos only) |
+| Default branch ruleset `main` | PR required (0 approvals, stale approvals dismissed on new commits, conversations must be resolved, extra approval for unattributed changes); force pushes blocked; deletion blocked; merge methods follow the repo's merge settings |
+| Tag ruleset `releases` | tags matching `v*` can't be deleted or force-pushed |
 
 ## Profiles and overrides
 
@@ -75,16 +76,15 @@ some repos:
 
 ```yaml
 github_profiles:
-  pages:                 # Actions-based Pages site, homepage set to it
+  homepage:              # homepage points to the repo's Pages site
     homepage: "https://{{ github_owner }}.github.io/{{ repo_name }}/"
-    pages: {}
   codeql:                # merges must pass CodeQL + code quality
     branch_protection:
       extra_rules: [...]
 
 github_repos:
   ShotgunApp:
-    profiles: [pages, codeql]
+    profiles: [homepage, codeql]
     branch_protection:
       required_status_checks: [Build, Unit tests, Static analysis]
 ```
@@ -94,10 +94,12 @@ Any setting from the standard can be overridden in a profile or a repo, e.g.
 `branch_protection.extra_rules` takes raw [ruleset rules](https://docs.github.com/en/rest/repos/rules)
 as the GitHub API returns them, so any rule type can be used.
 
-GitHub Pages: `pages: {}` for an Actions-based site,
+GitHub Pages: every public repo gets an Actions-based site (`pages: {}`). A site
+stays empty until the repo has a workflow that deploys it
+(`actions/upload-pages-artifact` + `actions/deploy-pages`). Per repo:
 `pages: {build_type: legacy, source_branch: main, source_path: /}` for a
-branch-based one, `pages: false` to remove a site. Without `pages` (the
-default), an existing site is left alone.
+branch-based site, `pages: false` to remove it, `pages: null` to leave it
+unmanaged. Private repos are never given a site.
 
 ## Profile README
 
@@ -121,9 +123,10 @@ to `main`.
 - **Private repos get no rulesets / secret scanning** — GitHub Free doesn't
   offer them on private repos. With GitHub Pro, set `rulesets_available: true`
   (in the standard or per repo).
-- **Rulesets are matched by name.** Existing rulesets named `main` or
-  `Releases` are adopted and renamed (`github_ruleset_adopt_names`). Rulesets
-  with other names are left alone. `enabled: false` deletes the managed ruleset.
+- **Rulesets are matched by name** (`branch_protection.name`,
+  `tag_protection.name`). Rulesets named `default-branch` or `Releases` are
+  adopted and renamed (`github_ruleset_adopt_names`). Rulesets with other names
+  are left alone. `enabled: false` deletes the managed ruleset.
 - **"Auto-close issues with merged linked pull requests"** has no API (neither
   REST nor GraphQL). Set it by hand in each repo's settings.
 - **Encrypt `vault.yml` before committing it.** The playbook refuses to run

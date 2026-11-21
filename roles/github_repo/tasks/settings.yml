@@ -155,6 +155,6 @@
 
     - name: "{{ repo_name }} | Ruleset"
       ansible.builtin.include_tasks: ruleset.yml
-      loop: [default-branch, releases]
+      loop: [branch, tag]
       loop_control:
         loop_var: _kind

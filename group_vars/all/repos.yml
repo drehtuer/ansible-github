@@ -11,10 +11,9 @@ github_owner: drehtuer
 
 # --- Profiles: settings shared by some repositories -------------------------
 github_profiles:
-  # GitHub Pages site (Actions-based) at https://<owner>.github.io/<repo>/
-  pages:
+  # Homepage points to the repo's GitHub Pages site.
+  homepage:
     homepage: "https://{{ github_owner }}.github.io/{{ repo_name }}/"
-    pages: {}
 
   # Merges into the default branch must pass CodeQL and code quality.
   codeql:
@@ -44,29 +43,29 @@ github_repos:
   # Android apps
 
   ShotgunApp:
-    profiles: [pages, codeql]
+    profiles: [homepage, codeql]
     description: Android app to pick a starting player, teams, or player order
     topics: [android, boardgame, choices, ai-coding]
     branch_protection:
       required_status_checks: [Build, Unit tests, Static analysis]
 
   dInfinityApp:
-    profiles: [pages]
+    profiles: [homepage]
     description: A dice roller for Android
     topics: [boardgame, dice, dice-roller, tabletop, android, ai-coding, 3d-rendering, physics-simulation]
 
   NextGalleryApp:
-    profiles: [pages]
+    profiles: [homepage]
     description: Gallery app for Android
     topics: [ai-coding, android, gallery-viewer, nextcloud, osm]
 
   NextAlarmApp:
-    profiles: [pages]
+    profiles: [homepage]
     description: An alarm clock for Android that takes alarms from calendar entries
     topics: [ai-coding, alarm-clock, android, calendar]
 
   podsiloApp:
-    profiles: [pages, codeql]
+    profiles: [homepage, codeql]
     description: Podcast catcher app for Android that uses Nextcloud's gPodder backend.
     homepage: https://drehtuer.github.io/podsilo/
     topics: [android, nextcloud, podcast, podcast-client, ai-coding]
@@ -74,12 +73,12 @@ github_repos:
   # Infrastructure
 
   ansible-drehtuer:
-    profiles: [pages]
+    profiles: [homepage]
     description: Ansible configuration for the domains drehtuer.de and drehtuer.net
     topics: [ansible, server, setup, ai-coding]
 
   ansible-workstation:
-    profiles: [pages]
+    profiles: [homepage]
     description: Ansible provisioning for a personal WSL workstation (Ubuntu 24.04 / 26.04).
     topics: [ansible, dotfiles, setup, ai-coding]
 
@@ -92,13 +91,12 @@ github_repos:
   fluentbit: {}
 
   antora:
-    profiles: [pages]
-    pages: {build_type: legacy, source_branch: main, source_path: /}
+    profiles: [homepage]
 
   # Projects
 
   AutomaticRecordDigitalizer:
-    profiles: [pages]
+    profiles: [homepage]
     description: A contraption to automatically and unsupervised record vinyl records DIY with AI
     topics: [automation, contraption, recording, vinyl]
     branch_protection:

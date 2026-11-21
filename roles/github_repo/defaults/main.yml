@@ -18,7 +18,7 @@ github_only: ""
 # Existing rulesets with these names are adopted (and renamed) instead of
 # creating a second ruleset next to them.
 github_ruleset_adopt_names:
-  default-branch: [main]
-  releases: [Releases]
+  branch: [default-branch]
+  tag: [Releases]
 
 github_api: https://api.github.com

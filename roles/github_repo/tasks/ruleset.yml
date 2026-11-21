@@ -1,7 +1,7 @@
 - name: "{{ repo_name }} | {{ _kind }} | Find ruleset"
   ansible.builtin.set_fact:
     _rs_want: "{{ _s | github_ruleset(_kind) }}"
-    _rs_id: "{{ _rulesets.json | github_ruleset_find(_kind, github_ruleset_adopt_names) }}"
+    _rs_id: "{{ _rulesets.json | github_ruleset_find(_s, _kind, github_ruleset_adopt_names) }}"
 
 - name: "{{ repo_name }} | {{ _kind }} | Read ruleset"
   ansible.builtin.uri:
@@ -24,7 +24,7 @@
          else {'method': 'PUT', 'url': _url ~ '/rulesets/' ~ _rs_id, 'changes': _rs_changes} if _rs_want and _rs_changes
          else {'method': 'DELETE', 'url': _url ~ '/rulesets/' ~ _rs_id, 'changes': ['delete']} if not _rs_want and _rs_id | int > 0
          else none }}
-    write_what: "ruleset {{ _kind }}"
+    write_what: "ruleset {{ _s[_kind ~ '_protection'].name }}"
     write_changes: "{{ _rs_write.changes }}"
     write_method: "{{ _rs_write.method }}"
     write_url: "{{ _rs_write.url }}"

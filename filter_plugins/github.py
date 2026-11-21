@@ -101,6 +101,12 @@ def github_settings(repo, name, standard, profiles):
 
     if merged["rulesets_available"] is None:
         merged["rulesets_available"] = merged["visibility"] == "public"
+    # Pages are only managed on public repositories.
+    if merged["visibility"] == "private":
+        merged["pages"] = None
+    merged["tag_protection"]["patterns"] = [
+        p if p.startswith(("refs/", "~")) else "refs/tags/" + p
+        for p in merged["tag_protection"]["patterns"]]
     return merged
 
 
@@ -161,21 +167,21 @@ def github_pages_diff(s, current):
     if p is None:
         return None
     if p is False:
-        return {"method": "DELETE", "body": None, "changes": ["pages: remove site"]} if current else None
+        return {"method": "DELETE", "body": None, "changes": ["remove site"]} if current else None
 
     body = {"build_type": p["build_type"]}
     if p["build_type"] == "legacy":
         body["source"] = {"branch": p["source_branch"], "path": p["source_path"]}
     if not current:
-        return {"method": "POST", "body": body, "changes": ["pages: create %s site" % p["build_type"]]}
+        return {"method": "POST", "body": body, "changes": ["create %s site" % p["build_type"]]}
 
     changes = []
     if current.get("build_type") != p["build_type"]:
-        changes.append("pages.build_type: %s -> %s" % (current.get("build_type"), p["build_type"]))
+        changes.append("build_type: %s -> %s" % (current.get("build_type"), p["build_type"]))
     if p["build_type"] == "legacy" and not _covers(current.get("source"), body["source"]):
-        changes.append("pages.source: %s -> %s" % (_show(current.get("source")), _show(body["source"])))
+        changes.append("source: %s -> %s" % (_show(current.get("source")), _show(body["source"])))
     if current.get("cname") != p["cname"]:
-        changes.append("pages.cname: %s -> %s" % (current.get("cname"), p["cname"]))
+        changes.append("cname: %s -> %s" % (current.get("cname"), p["cname"]))
         body["cname"] = p["cname"]
     return {"method": "PUT", "body": body, "changes": changes} if changes else None
 
@@ -188,14 +194,19 @@ def _merge_methods(s):
                             ("rebase", s["allow_rebase_merge"])) if on]
 
 
+RULESET_SECTIONS = {"branch": "branch_protection", "tag": "tag_protection"}
+
+
 def github_ruleset(s, kind):
-    """Desired ruleset body for kind 'default-branch' or 'releases', or None
-    if it must not exist."""
-    if kind == "default-branch":
+    """Desired ruleset body for kind 'branch' (default branch) or 'tag'
+    (releases), or None if it must not exist."""
+    if kind == "branch":
         bp = s["branch_protection"]
         if not bp["enabled"]:
             return None
-        rules = [{"type": "deletion"}, {"type": "non_fast_forward"}]
+        rules = [{"type": "non_fast_forward"}]
+        if bp["restrict_deletions"]:
+            rules.append({"type": "deletion"})
         if bp["required_linear_history"]:
             rules.append({"type": "required_linear_history"})
         if bp["require_pull_request"]:
@@ -217,25 +228,25 @@ def github_ruleset(s, kind):
                 "do_not_enforce_on_create": False,
             }})
         rules.extend(deepcopy(bp["extra_rules"]))
-        return {"name": kind, "target": "branch", "enforcement": "active",
+        return {"name": bp["name"], "target": "branch", "enforcement": "active",
                 "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
                 "bypass_actors": [], "rules": rules}
-    if kind == "releases":
+    if kind == "tag":
         tp = s["tag_protection"]
         if not tp["enabled"]:
             return None
-        return {"name": kind, "target": "tag", "enforcement": "active",
+        return {"name": tp["name"], "target": "tag", "enforcement": "active",
                 "conditions": {"ref_name": {"include": list(tp["patterns"]), "exclude": []}},
                 "bypass_actors": [], "rules": [{"type": "deletion"}, {"type": "non_fast_forward"}]}
     raise AnsibleFilterError("unknown ruleset kind " + kind)
 
 
-def github_ruleset_find(rulesets, kind, adopt_names):
-    """Id of the existing ruleset for `kind` (0 if none): matched by name, else
-    by one of the adoptable legacy names (same target)."""
-    target = "branch" if kind == "default-branch" else "tag"
-    candidates = [r for r in rulesets or [] if r.get("target") == target]
-    for names in ([kind], adopt_names.get(kind, [])):
+def github_ruleset_find(rulesets, s, kind, adopt_names):
+    """Id of the existing ruleset for `kind` (0 if none): matched by its
+    configured name, else by one of the adoptable names (same target)."""
+    name = s[RULESET_SECTIONS[kind]]["name"]
+    candidates = [r for r in rulesets or [] if r.get("target") == kind]
+    for names in ([name], adopt_names.get(kind, [])):
         for r in candidates:
             if r.get("name") in names:
                 return r["id"]
